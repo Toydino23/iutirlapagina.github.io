@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turismo Bolívar - Mapa Interactivo</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --primary: #720000;
+            --accent: #f9a825;
+            --dark: #212121;
+            --light: #f4f4f4;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            background-color: var(--light);
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 0 15px;
+        }
+
+        #map {
+            height: 550px;
+            width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+        }
+
+        /* Estilos para el contenido del Popup */
+        .popup-content {
+            text-align: center;
+            max-width: 200px;
+        }
+
+        .popup-img {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 5px;
+            margin-bottom: 8px;
+        }
+
+        .btn-visit {
+            display: inline-block;
+            background: var(--accent);
+            color: var(--dark) !important;
+            padding: 6px 12px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+
+        .footer-info {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #720000;
+            text-align: center;
+        }
+
+        header {
+            background: var(--primary);
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .header-logo {
+            width: 300px;
+            height: 60px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .header-content {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            text-align: right;
+            flex: 1;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 400px;
+            height: 100vh;
+            background: var(--light);
+            box-shadow: -5px 0 20px rgba(0,0,0,0.2);
+            transition: right 0.3s ease;
+            z-index: 1000;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .sidebar.active {
+            right: 0;
+        }
+
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary);
+        }
+
+        .close-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .sidebar-content {
+            text-align: center;
+        }
+
+        .sidebar-img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .gallery-container {
+            position: relative;
+            height: 200px;
+            overflow: hidden;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .gallery-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .gallery-img.active {
+            opacity: 1;
+        }
+
+        .gallery-controls {
+            position: absolute;
+            top: 50%;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            transform: translateY(-50%);
+            padding: 0 10px;
+            box-sizing: border-box;
+        }
+
+        .gallery-btn {
+            background: rgba(0,0,0,0.5);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .gallery-dots {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 5px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.5);
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .dot.active {
+            background: white;
+        }
+
+        .sidebar h2 {
+            color: var(--primary);
+            margin: 0 0 10px;
+            font-size: 1.5rem;
+        }
+
+        /* Nueva sección Información del Lugar */
+        .place-info {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .info-field {
+            margin-bottom: 15px;
+        }
+
+        .info-field label {
+            display: block;
+            color: var(--primary);
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 0.95rem;
+        }
+
+        .info-field h3 {
+            margin: 5px 0 0 0;
+            color: var(--dark);
+            font-size: 1rem;
+            font-weight: 500;
+            line-height: 1.4;
+        }
+
+        .leyenda {
+        background: var(--light);
+        margin: 10px 20px;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        max-height: 200px;
+        overflow-y: auto;
+        }
+
+        .leyenda h3 {
+        margin: 0 0 10px;
+        color: var(--primary);
+        font-size: 1.1rem;
+        }
+
+        .lista-ubicaciones {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        }
+
+        .item-leyenda {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        background: rgba(249, 168, 37, 0.1);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.2s;
+        font-size: 0.9rem;
+        }
+
+        .item-leyenda:hover {
+        background: var(--accent);
+        color: var(--dark);
+        }
+
+        .item-leyenda::before {
+        content: '📍';
+        font-size: 1.2rem;
+        }
+
+        /* Responsive para móvil */
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                text-align: center;
+                padding: 1rem;
+            }
+
+            .header-content {
+                align-items: center;
+                text-align: center;
+                margin-top: 0.5rem;
+            }
+
+            .header-logo {
+                width: 300px;
+                height: 45px;
+            }
+
+            .sidebar {
+                width: 100%;
+                right: -100%;
+            }
+
+            .leyenda {
+                margin: 10px;
+                max-height: 150px;
+            }
+        }
+
+        .custom-marker {
+            filter: drop-shadow(0 2px 4px rgba(114, 0, 0, 0.4));
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="https://iutirlaoficial.com">
+            <div class="header-logo">
+                <img src="https://i.ibb.co/GQKyC4v5/Logo-IUTIRLA-II.png" alt="Logo" style="width:100%; height:100%; object-fit: contain;">
+            </div>
+        </a>
+        <div class="header-content">
+            <h1>Destinos Turísticos de Bolívar</h1>
+            <p>Haz clic en los puntos del mapa para conocer más</p>
+        </div>
+    </header>
+
+    <div id="leyenda" class="leyenda">
+    <h3>🗺️ Leyenda de Ubicaciones</h3>
+    <div id="lista-ubicaciones" class="lista-ubicaciones"></div>
+    </div>
+
+    <div class="container">
+        <div id="map"></div>
+    </div>
+
+    <div id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h2 id="sidebar-title"></h2>
+            <button class="close-btn" onclick="closeSidebar()">Cerrar</button>
+        </div>
+            <div class="section-title">
+                <h2>Galería</h2>
+            </div>
+            <div id="gallery-container" class="gallery-container"></div>
+
+        <div id="sidebar-content" class="sidebar-content">
+            <div class="section-title">
+                <h2>Información del Lugar</h2>
+            </div>
+            <div class="place-info">
+                <div class="info-field">
+                    <label>Ubicacion:</label>
+                    <h3 id="route">Ruta no especificada</h3>
+                </div>
+                <div class="info-field">
+                    <label>Horario de apertura:</label>
+                    <h3 id="hours">Horario no disponible</h3>
+                </div>
+            </div>
+        </div>
+            <a id="visit-link" href="" target="_blank" class="btn-visit">Más información</a>
+        </div>
+    </div>
+
+    <div class="footer-info">
+        <p>Tip: Puedes usar la rueda del ratón para hacer zoom en zonas específicas como la Gran Sabana.</p>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Inicializar mapa centrado en Bolívar
+        const map = L.map('map').setView([8.3223763, -62.6896622], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // Icono personalizado sin cambios
+        const customIcon = L.divIcon({
+            className: 'custom-marker',
+            html: '<div style="background-color:#720000;width:25px;height:25px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>',
+            iconSize: [31, 42],
+            iconAnchor: [12.5, 25],
+            popupAnchor: [0, -25]
+        });
+
+        // Lista de sitios con nuevas propiedades
+        const sitios = [
+            {
+                nombre: 'Salto Ángel',
+                coords: [5.9675, -62.5356],
+                img: ['https://i.ibb.co/XZp1x8jj/Salto-Angel-Kerepakupai-Ven.jpg',
+                    'https://i.ibb.co/YFHgTwC5/salto-angel-2.jpg',
+                    'https://i.ibb.co/LDC5P6SJ/salto-angel-3.jpg',],
+                url: 'https://es.wikipedia.org/wiki/Salto_Ángel',
+                ruta: 'Parque Nacional Canaima',
+                horario: 'Depende de la excursion (entre 4 a 6 horas)',
+            },
+            {
+                nombre: 'Parque Canaima',
+                coords: [6.24, -62.85],
+                img: ['https://i.ibb.co/7xHvhRxx/parque-nacional-canaima-1024x683.jpg',
+                    'https://i.ibb.co/WWNkNqLY/parque-canaima2.jpg',
+                    'https://i.ibb.co/Hp7RK1gf/parque-canaima-3.jpg'],
+                url: 'https://es.wikipedia.org/wiki/Parque_nacional_Canaima',
+                ruta: 'Guayana venezolana, en los municipios Gran Sabana, Sifontes, Piar y Roscio',
+                horario: '24 horas, sin horario de cierre',
+            },
+
+            {
+                nombre: 'Embalse de Guri',
+                coords: [7.766, -63.000],
+                img: ['https://i.ibb.co/NgLMzJj0/embalsa-de-guri.webp',
+                    'https://i.ibb.co/ymc2H0xD/embalse-de-guri-2.webp',
+                    'https://i.ibb.co/23yPbWsB/embalse-de-guri-3.jpg'],
+                url: 'https://es.wikipedia.org/wiki/Embalse_de_Guri',
+                ruta: 'Cañón de Necuima, Encima del río Caroní',
+                horario: '8:00 Am / 1:00 Pm',
+            },
+
+            {nombre: 'Parque Cachamay',
+            coords: [8.305, -62.701],
+            img: ['https://i.ibb.co/4ncHdwHN/parque-cachamay.jpg',
+            'https://i.ibb.co/5g9v782h/parque-cachamay-2.jpg',
+            'https://i.ibb.co/20vSqmLy/parque-cachamay-3.jpg'],
+            url: 'https://es.wikipedia.org/wiki/Parques_de_Ciudad_Guayana#Parque_Cachamay',
+            ruta: 'Avenida Guayana, Puerto Ordaz',
+            horario: `Martes a Sábado: 8:00 a. m. / 2:00 a. m.
+            Domingos: 8:00 a. m. / 10:00 p. m.`,
+            },
+
+            {nombre: 'Hotel Eurobuilding',
+            coords: [8.299, -62.738],
+            img: ['https://i.ibb.co/1fGYkkQZ/eurobuilding.jpg',
+            'https://i.ibb.co/9R9wMD2/hotel-eurobuilding-2.jpg',
+            'https://i.ibb.co/hRjTXBMR/hotel-eurobuilding-3.jpg'],
+            url: 'https://eurobuilding-suites-guayana.venezuela-hotels.net/es/',
+            ruta: 'Puerto Ordaz, Urbanizacion Alta vista norte',
+            horario: `Checkin: 3:00Pm / 12:00Am Check-out: 12:00Pm`,
+            },
+
+            {nombre: 'Parque La Llovizna',
+            coords: [8.3114, -62.6775],
+            img: ['https://i.ibb.co/2DkVD2r/Parque-la-llovizna.jpg',
+            'https://i.ibb.co/Tqd5pL1n/parque-la-llovizna-2.jpg',
+            'https://i.ibb.co/5WdRb2GZ/parque-la-llovizna-3.jpg'],
+            url: 'https://www.ecured.cu/Parque_la_Llovizna',
+            ruta: 'Puerto Ordaz, Av. Leopoldo Sucre Figarella,',
+            horario: 'Martes a Domingo: 6:00 AM / 6:00 PM',
+            },
+
+            {nombre: 'Casco Histórico Cd. Bolívar',
+            coords: [8.1437, -63.5522], 
+            img: ['https://i.ibb.co/8LV87Tgn/casco-historico.jpg',
+            'https://i.ibb.co/bg7JRVy1/casco-historico-2.avif',
+            'https://i.ibb.co/rG0JZ3J1/casco-historico-3.jpg'],
+            url: 'https://steemit.com/travel/@alexdc88/casco-historico-ciudad-bolivar-venezuela',
+            ruta: 'Centro de Ciudad Bolivar, a orillas del río Orinoco',
+            horario: 'Acceso libre 24/7',
+            },
+
+            {nombre: 'Castillos de Guayana',
+            coords: [8.5060, -62.4021],
+            img: ['https://i.ibb.co/Z1vCK2fZ/castillos-de-guayana.jpg',
+            'https://i.ibb.co/ZvCSH1m/castillos-de-guayana-2.jpg',
+            'https://i.ibb.co/bjXw9bf2/castillos-de-guayana-3.jpg'],
+            url: 'https://www.venezuelatuya.com/guayana/castillos_guayana.htm',
+            ruta: 'Delta Amacuro, margen derecha del Rio Orinoco',
+            horario: 'Acceso libre 24/7 (mejor 8:00 AM - 4:00 PM)',
+            },
+
+            {nombre: 'CCC Alta vista',
+            coords: [8.294, -62.7330],
+            img: ['https://i.ibb.co/Lhqzw89b/CCC-alta-vista.webp',
+            'https://i.ibb.co/27StTLBh/CCC-alta-vista2.jpg',
+            'https://i.ibb.co/Fkxfz5hN/CCC-alta-vista-3.jpg'],
+            url: 'https://www.instagram.com/cccaltavista1/',
+            ruta: ' Carrera Guri, Puerto Ordaz',
+            horario: '10:00 AM / 06:00 PM',
+            },
+            
+            {nombre: 'Museo de Arte Moderno Jesús Soto',
+            coords: [8.1325, -63.5369],
+            img: ['https://i.ibb.co/233dhR3p/museo-jesus-soto.jpg',
+            'https://i.ibb.co/R49FNX4P/museo-jesus-soto-2.jpg',
+            'https://i.ibb.co/wNCmwVcC/museo-jesus-soto-3.jpg'],
+            url: 'https://iamvenezuela.org/2017/10/museo-de-arte-moderno-jesus-soto/',
+            ruta: 'Avenida Germania, Ciudad Bolívar',
+            horario: '10:00 Am / 05:00 Pm',
+            },
+
+            {nombre: 'Posada Boutique Venezuela',
+            coords: [8.316278756411647, -62.72347323449539],
+            img: ['https://i.ibb.co/chL368DM/posada-boutique-1.jpg',
+            'https://i.ibb.co/MkxYhLk1/posada-boutique-2.jpg',
+            'https://i.ibb.co/9mJYVJs6/posada-boutique-3.jpg'],
+            url: 'https://www.instagram.com/posadaboutiquevenezuela/',
+            ruta: 'Puerto Ordaz, Ferrominera, Campo A-2',
+            horario: '24/7',
+            },
+
+            {nombre: 'Posada Turistica Alonga',
+            coords: [8.303523551831725, -62.71652673449552],
+            img: ['https://i.ibb.co/93Zp1c0f/posada-turistica-alonga-2.jpg',
+            'https://i.ibb.co/TDH9c3Wz/posada-turistica-alonga-1.jpg',
+            'https://i.ibb.co/hF5dPpM5/posada-turistica-alonga-3.jpg'],
+            url: 'https://www.instagram.com/posada_alonga/',
+            ruta: 'Puerto Ordaz, Avenida canada, La cornisa',
+            horario: '24/7',
+            },
+
+            {nombre: 'Posada La Zapoara',
+            coords: [8.31607554053843, -62.724774465179344],
+            img: ['https://i.ibb.co/twQCh7VW/posada-sapoara-1.jpg',
+            'https://i.ibb.co/1fHPRjtd/posada-sapoara-2.jpg',
+            'https://i.ibb.co/LddyrkCP/posada-sapoara-3.jpg'],
+            url: 'https://www.instagram.com/laposadazapoara/',
+            ruta: 'Puerto Ordaz, Ferromineras, Campo A-2',
+            horario: '24/7',
+            },
+        
+            {nombre: 'Hotel Plaza Meru',
+            coords: [8.295379540507193, -62.73706377116451],
+            img: ['https://i.ibb.co/VcHvd2s0/hotel-plaza-meru-1.jpg',
+            'https://i.ibb.co/HDcZpYQb/hotel-plaza-meru-2.jpg',
+            'https://i.ibb.co/LddyrkCP/posada-sapoara-3.jpg'],
+            url: 'https://i.ibb.co/MD2fKJ18/hotel-plaza-meru-3.avif',
+            ruta: 'Puerto Ordaz, Alta vista norte',
+            horario: '09:00 Am / 06:00 Pm',
+            },
+
+            {nombre: 'El balneario Las Culizas',
+            coords: [8.22219335208798, -62.789804487589734],
+            img: ['https://i.ibb.co/qL4X3dyp/las-culizas-1.jpg',
+            'https://i.ibb.co/pjGh3T3k/las-culizas-2.jpg',
+            'https://i.ibb.co/NgTSdngb/las-culizas-3.jpg'],
+            url: 'https://www.instagram.com/lasculizas/',
+            ruta: 'Puerto Ordaz, Eje Atlantico',
+            horario: 'Sabados y Domingos: 08:00 Am / 05:00 Pm',
+            },
+
+            {nombre: 'El balneario Tierra Nueva',
+            coords: [8.203831744197412, -62.79653597563743],
+            img: ['https://i.ibb.co/SwQdxx3W/balneario-tierra-nueva-2.jpg',
+            'https://i.ibb.co/BKVS118w/balneario-tierra-nueva-1.jpg',
+            'https://i.ibb.co/nMs4d2Zg/balneario-tierra-nueva-3.jpg'],
+            url: 'https://www.instagram.com/tierranuevacampamento/',
+            ruta: 'Puerto Ordaz, Lago Macagua, Av. Atlantico',
+            horario: 'Miercoles y Domingos: 07:00 Am / 05:00 Pm',
+            },
+
+            {nombre: 'Tomasa Restaurant',
+            coords: [8.292065700345333, -62.73951994680098],
+            img: ['https://i.ibb.co/LD6bgLDX/tomasa-restaurant-1.jpg',
+            'https://i.ibb.co/dyhJ7xV/tomasa-restaurant-2.jpg',
+            'https://i.ibb.co/9mDXkypd/tomasa-restaurant-3.jpg'],
+            url: 'https://www.instagram.com/tomasarestaurant/',
+            ruta: 'Puerto Ordaz, Av. Guayana, Los Samanes',
+            horario: 'Domingos a Miercoles: 11:30 Am / 5:00 Pm, Jueves a Sabados: 11:30 Pm / 10:00 Pm',
+            },
+
+            {nombre: 'Muelle de Macagua',
+            coords: [8.287432646982216, -62.665611242329014],
+            img: ['https://i.ibb.co/ZztP4NT8/muelle-macagua-1.png',
+            'https://i.ibb.co/N2KMLHFc/muelle-macagua-2.png',
+            'https://i.ibb.co/9HXLkJdk/muelle-macagua-3.jpg'],
+            url: 'https://www.instagram.com/elmuellemacagua/',
+            ruta: 'Puerto Ordaz, Av. Leopoldo Sucre Figarella',
+            horario: 'Miercoles a Domingo: 11:00 Am / 11:00 Pm',
+            },
+            
+            {nombre: 'La Piedra del Elefante',
+            coords: [8.092542287956894, -63.01635869216848],
+            img: ['https://i.ibb.co/xqttKx4R/piedra-del-elefante-2.jpg',
+            'https://i.ibb.co/hR4ZStnN/piedra-del-elefante.jpg',
+            'https://i.ibb.co/k2SKMN0X/piedra-del-elefante-3.jpg'],
+            url: 'https://www.instagram.com/piedradelelefante/',
+            ruta: 'Puerto Ordaz, Av. Leopoldo Sucre Figarella',
+            horario: 'Jueves a Domingo: 06:30 Am / 06:30 Pm',
+            },   
+           
+        ];
+
+        // Crear leyenda con lista de ubicaciones
+        function crearLeyenda() {
+        const lista = document.getElementById('lista-ubicaciones');
+        if (!lista) return;
+        
+        lista.innerHTML = ''; // Limpiar
+        
+        sitios.forEach((sitio, index) => {
+            const item = document.createElement('div');
+            item.className = 'item-leyenda';
+            item.textContent = `${sitio.nombre} - ${sitio.ruta || 'Ruta no especificada'}`;
+            item.onclick = () => showSidebar(sitio); // Abre sidebar del sitio
+            lista.appendChild(item);
+        });
+        }
+
+        // Función para mostrar sidebar
+        function showSidebar(sitio) {
+            currentSite = sitio;
+            
+            document.getElementById('sidebar-title').textContent = sitio.nombre;
+            const visitLink = document.getElementById('visit-link');
+            if (visitLink) visitLink.href = sitio.url;
+            
+            // Información del lugar
+            document.getElementById('route').textContent = sitio.ruta || 'Ruta no especificada';
+            document.getElementById('hours').textContent = sitio.horario || 'Horario no disponible';
+            
+
+        // Preparar imágenes
+        const imgs = Array.isArray(sitio.img) ? sitio.img : [sitio.img];
+        renderGallery(imgs);
+
+        // Abrir sidebar
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) sidebar.classList.add('active');
+        }
+
+        // Función para cerrar sidebar
+        function closeSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) sidebar.classList.remove('active');
+            clearInterval(slideInterval);
+        }
+
+        // Añadir marcadores al mapa
+        sitios.forEach(sitio => {
+            const marker = L.marker(sitio.coords, { icon: customIcon }).addTo(map);
+            marker.on('click', function() { showSidebar(sitio); });
+            
+            // Popup con imagen pequeña
+            const popupContent = `
+                <div class="popup-content">
+                    <img src="${sitio.img[0]}" class="popup-img" alt="${sitio.nombre}">
+                    <strong>${sitio.nombre}</strong><br>
+                    <a href="${sitio.url}" target="_blank" class="btn-visit">Más información</a>
+                </div>
+            `;
+            marker.bindPopup(popupContent);
+        });
+
+        // Ocultar sidebar al hacer clic en el mapa
+        map.on('click', closeSidebar);
+
+        crearLeyenda(); // Genera la leyenda automáticamente
+
+        // Lógica de galería simplificada (agrega el código completo de galería de versiones anteriores)
+        let currentSite = null;
+        let currentSlideIndex = 0;
+        let slideInterval = null;
+
+            // Renderiza la galería dada una lista de src de imágenes
+    function renderGallery(imgs) {
+        const container = document.getElementById('gallery-container');
+        if (!container) return;
+
+        container.innerHTML = ''; // limpiar
+        // Crear slides
+        imgs.forEach((src, idx) => {
+            const img = document.createElement('img');
+            img.src = src;
+            img.alt = 'Imagen de ' + (currentSite ? currentSite.nombre : '');
+            img.className = 'gallery-img' + (idx === 0 ? ' active' : '');
+            container.appendChild(img);
+        });
+                // Dots de navegación
+        createGalleryDots(imgs.length);
+
+        currentSlideIndex = 0;
+        startAutoplay();
+    }
+
+        // Crear/actualizar dots
+    function createGalleryDots(n) {
+        const container = document.getElementById('gallery-container');
+        // Intentar reutilizar un contenedor existente
+        let dots = container.querySelector('.gallery-dots');
+        if (!dots) {
+            dots = document.createElement('div');
+            dots.className = 'gallery-dots';
+            container.appendChild(dots);
+        }
+        dots.innerHTML = '';
+        for (let i = 0; i < n; i++) {
+            const dot = document.createElement('span');
+            dot.className = 'dot' + (i === 0 ? ' active' : '');
+            dot.dataset.index = i;
+            dot.addEventListener('click', () => goToSlide(i));
+            dots.appendChild(dot);
+        }
+    }
+
+    // Navegación
+    function goToSlide(index) {
+        const imgs = document.querySelectorAll('.gallery-img');
+        if (imgs.length === 0) return;
+        imgs[currentSlideIndex].classList.remove('active');
+        currentSlideIndex = index;
+        imgs[currentSlideIndex].classList.add('active');
+        updateDots(currentSlideIndex);
+        resetAutoplay();
+    }
+
+    function nextSlide() {
+        const imgs = document.querySelectorAll('.gallery-img');
+        if (imgs.length === 0) return;
+        imgs[currentSlideIndex].classList.remove('active');
+        currentSlideIndex = (currentSlideIndex + 1) % imgs.length;
+        imgs[currentSlideIndex].classList.add('active');
+        updateDots(currentSlideIndex);
+    }
+
+    function prevSlide() {
+        const imgs = document.querySelectorAll('.gallery-img');
+        if (imgs.length === 0) return;
+        imgs[currentSlideIndex].classList.remove('active');
+        currentSlideIndex = (currentSlideIndex - 1 + imgs.length) % imgs.length;
+        imgs[currentSlideIndex].classList.add('active');
+        updateDots(currentSlideIndex);
+    }
+
+    function updateDots(index) {
+        const dots = document.querySelectorAll('.dot');
+        dots.forEach((d, i) => d.classList.toggle('active', i === index));
+    }
+
+    // Autoplay
+    function startAutoplay() {
+        clearInterval(slideInterval);
+        slideInterval = setInterval(() => nextSlide(), 3500);
+    }
+
+      function resetAutoplay() {
+        clearInterval(slideInterval);
+        startAutoplay();
+    }
+
+    const galleryEl = document.getElementById('gallery-container');
+    if (galleryEl) {
+        galleryEl.addEventListener('mouseenter', () => clearInterval(slideInterval));
+        galleryEl.addEventListener('mouseleave', () => startAutoplay());
+    }
+
+</script>
+
+</body>
+</html>
